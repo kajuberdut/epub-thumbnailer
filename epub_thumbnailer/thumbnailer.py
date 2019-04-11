@@ -21,19 +21,21 @@
 
 import os
 import re
-from io import BytesIO
-import sys
-from xml.dom import minidom
-from StringIO import StringIO
-import urllib
 import zipfile
+from io import BytesIO, StringIO
+from pathlib import Path
+from xml.dom import minidom
+
+import click
+
 try:
     from PIL import Image
 except ImportError:
     import Image
 
-img_ext_regex = re.compile(r'^.*\.(jpg|jpeg|png)$', flags=re.IGNORECASE)
-cover_regex = re.compile(r'.*cover.*\.(jpg|jpeg|png)', flags=re.IGNORECASE)
+img_ext_regex = re.compile(r"^.*\.(jpg|jpeg|png)$", flags=re.IGNORECASE)
+cover_regex = re.compile(r".*cover.*\.(jpg|jpeg|png)", flags=re.IGNORECASE)
+
 
 def get_cover_from_manifest(epub):
 
@@ -63,12 +65,17 @@ def get_cover_from_manifest(epub):
         item_properties = item.getAttribute("properties")
         item_href = item.getAttribute("href")
         item_href_is_image = img_ext_regex.match(item_href.lower())
-        item_id_might_be_cover = item_id == cover_id or ('cover' in item_id and item_href_is_image)
-        item_properties_might_be_cover = item_properties == cover_id or ('cover' in item_properties and item_href_is_image)
+        item_id_might_be_cover = item_id == cover_id or (
+            "cover" in item_id and item_href_is_image
+        )
+        item_properties_might_be_cover = item_properties == cover_id or (
+            "cover" in item_properties and item_href_is_image
+        )
         if item_id_might_be_cover or item_properties_might_be_cover:
             return os.path.join(os.path.dirname(rootfile_path), item_href)
 
     return None
+
 
 def get_cover_by_filename(epub):
     no_matching_images = []
@@ -79,41 +86,34 @@ def get_cover_by_filename(epub):
             no_matching_images.append(fileinfo)
     return _choose_best_image(no_matching_images)
 
+
 def _choose_best_image(images):
     if images:
         return max(images, key=lambda f: f.file_size)
     return None
 
-def extract_cover(cover_path):
-    if cover_path:
-        cover = epub.open(cover_path)
-        im = Image.open(BytesIO(cover.read()))
-        im.thumbnail((size, size), Image.ANTIALIAS)
-        if im.mode == "CMYK":
-            im = im.convert("RGB")
-        im.save(output_file, "PNG")
-        return True
-    return False
 
-# Which file are we working with?
-input_file = sys.argv[1]
-# Where do does the file have to be saved?
-output_file = sys.argv[2]
-# Required size?
-size = int(sys.argv[3])
+@click.command()
+@click.argument("in_file")
+@click.argument("out_file")
+@click.option("--size", default=124, type=int, help="Output size.")
+def get_thumbnail(in_file, out_file, size):
+    file_path = Path(in_file)
+    with file_path.open() as fp:
+        # Unzip the epub
+        epub = zipfile.ZipFile(file_path, "r")
+    extraction_strategies = [get_cover_from_manifest, get_cover_by_filename]
 
-# An epub is just a zip
-file_url = urllib.urlopen(input_file)
-epub = zipfile.ZipFile(StringIO(file_url.read()), "r")
-
-extraction_strategies = [get_cover_from_manifest, get_cover_by_filename]
-
-for strategy in extraction_strategies:
-    try:
-        cover_path = strategy(epub)
-        if extract_cover(cover_path):
-            exit(0)
-    except Exception as ex:
-        print("Error getting cover using %s: " % strategy.__name__, ex)
-
-exit(1)
+    for strategy in extraction_strategies:
+        try:
+            cover_path = strategy(epub)
+            if cover_path:
+                cover = epub.open(cover_path)
+                im = Image.open(BytesIO(cover.read()))
+                im.thumbnail((size, size), Image.ANTIALIAS)
+                if im.mode == "CMYK":
+                    im = im.convert("RGB")
+                im.save(out_file, "PNG")
+                exit(0)
+        except Exception as ex:
+            print("Error getting cover using %s: " % strategy.__name__, ex)

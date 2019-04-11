@@ -6,8 +6,12 @@ verify_ssl = true
 [dev-packages]
 flake8 = "*"
 black = "*"
+mypy = "*"
+pytest = "*"
 
 [packages]
+pillow = "*"
+click = "*"
 
 [requires]
 python_version = "3.7"
