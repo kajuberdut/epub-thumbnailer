@@ -21,17 +21,72 @@
 
 import os
 import re
+import shutil
+import sys
+import xml.etree.ElementTree as ET
 import zipfile
-from io import BytesIO, StringIO
 from pathlib import Path
 from xml.dom import minidom
 
 import click
+from PIL import Image
 
-try:
-    from PIL import Image
-except ImportError:
-    import Image
+source_dir = Path(__file__)
+thumbnailer_path = Path("/usr/share/thumbnailers")
+
+
+def copy(src, dst):
+    """Copy file <src> to <dst>, creating all necessary dirs in between"""
+    try:
+        if not Path(src).isfile() or Path(dst).isdir():
+            return False
+        else:
+            Path(dst).mkdir(exist_ok=True, parents=True)
+            shutil.copy(src, dst)
+            return True
+    except Exception:
+        return False
+
+
+def gnome_info():
+    result_dict = {"platform": None, "distributor": None}
+    gnome_version_xml_file = Path("/usr/share/gnome/gnome-version.xml")
+
+    if not gnome_version_xml_file.isfile():
+        return result_dict
+
+    tree = ET.parse(gnome_version_xml_file)
+    if tree.find("./platform"):
+        result_dict["platform"] = tree.find("./platform").text
+    if tree.find("./distributor"):
+        result_dict["distributor"] = tree.find("./distributor").text
+    return result_dict
+
+
+def register():
+    if not os.access(thumbnailer_path, os.W_OK):
+        print(
+            f"You do not have write permissions to {thumbnailer_path}. Try with sudo."
+        )
+        sys.exit(1)
+
+    if gnome_info()["platform"] == 3:
+        print("Installing thumbnailer hook in /usr/share/thumbnailers ...")
+        if copy(
+            os.path.join(source_dir, "epub.thumbnailer"),
+            "/usr/share/thumbnailers/epub.thumbnailer",
+        ):
+            print("Registered")
+        else:
+            print("Could not register thumbnailer")
+
+
+def unregister():
+    if gnome_info()["platform"] == 3:
+        print("Uninstalling epub.thumbnailer from /usr/share/thumbnailers/ ...")
+        (thumbnailer_path / "epub.thumbnailer").unlink()
+        print("Unregistered")
+
 
 img_ext_regex = re.compile(r"^.*\.(jpg|jpeg|png)$", flags=re.IGNORECASE)
 cover_regex = re.compile(r".*cover.*\.(jpg|jpeg|png)", flags=re.IGNORECASE)
@@ -99,9 +154,8 @@ def _choose_best_image(images):
 @click.option("--size", default=124, type=int, help="Output size.")
 def get_thumbnail(in_file, out_file, size):
     file_path = Path(in_file)
-    with file_path.open() as fp:
-        # Unzip the epub
-        epub = zipfile.ZipFile(file_path, "r")
+    # Unzip the epub
+    epub = zipfile.ZipFile(file_path, "r")
     extraction_strategies = [get_cover_from_manifest, get_cover_by_filename]
 
     for strategy in extraction_strategies:
@@ -109,7 +163,7 @@ def get_thumbnail(in_file, out_file, size):
             cover_path = strategy(epub)
             if cover_path:
                 cover = epub.open(cover_path)
-                im = Image.open(BytesIO(cover.read()))
+                im = Image.open(cover.read())
                 im.thumbnail((size, size), Image.ANTIALIAS)
                 if im.mode == "CMYK":
                     im = im.convert("RGB")
