@@ -16,17 +16,17 @@ import typing as t
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = "epub-thumbnailer"
-DESCRIPTION = """Application to extract the cover of an epub book and create a thumbnail for it.
+NAME = "UnCover"
+DESCRIPTION = """A CLI Application for extracting covers from digital books.
 Forked from https://github.com/marianosimone/epub-thumbnailer"""
-URL = "https://github.com/kajuberdut/epub-thumbnailer"
+URL = "https://github.com/kajuberdut/uncover"
 EMAIL = "patrick.shechet@gmail.com"
 AUTHOR = "Patrick Shechet"
-REQUIRES_PYTHON = ">=3"
+REQUIRES_PYTHON = ">=3.6"
 VERSION = None
 
 # What packages are required for this module to be executed?
-REQUIRED = ["Pillow"]
+REQUIRED = ["Pillow", "click"]
 
 # What packages are optional?
 EXTRAS: t.Dict[str, str] = {
@@ -109,11 +109,7 @@ setup(
     packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
     # If your package is a single module, use this instead of 'packages':
     # py_modules=['mypackage'],
-    entry_points={
-        "console_scripts": [
-            "epub-thumbnailer=epub_thumbnailer.thumbnailer:get_thumbnail"
-        ]
-    },
+    entry_points={"console_scripts": ["uncover=uncover.uncover:cli"]},
     install_requires=REQUIRED,
     extras_require=EXTRAS,
     include_package_data=True,

@@ -63,7 +63,7 @@ def gnome_info():
     return result_dict
 
 
-def register():
+def gnome_register():
     if not os.access(thumbnailer_path, os.W_OK):
         print(
             f"You do not have write permissions to {thumbnailer_path}. Try with sudo."
@@ -81,7 +81,7 @@ def register():
             print("Could not register thumbnailer")
 
 
-def unregister():
+def gnome_unregister():
     if gnome_info()["platform"] == 3:
         print("Uninstalling epub.thumbnailer from /usr/share/thumbnailers/ ...")
         (thumbnailer_path / "epub.thumbnailer").unlink()
@@ -148,10 +148,6 @@ def _choose_best_image(images):
     return None
 
 
-@click.command()
-@click.argument("in_file")
-@click.argument("out_file")
-@click.option("--size", default=124, type=int, help="Output size.")
 def get_thumbnail(in_file, out_file, size):
     file_path = Path(in_file)
     # Unzip the epub
@@ -171,3 +167,30 @@ def get_thumbnail(in_file, out_file, size):
                 exit(0)
         except Exception as ex:
             print("Error getting cover using %s: " % strategy.__name__, ex)
+
+
+@click.command()
+@click.argument("in_file", type=click.Path(), required=False)
+@click.argument("out_file", type=click.Path(), required=False)
+@click.option("--size", default=124, type=int, help="Output size.")
+@click.option(
+    "--register",
+    default=False,
+    type=bool,
+    is_flag=True,
+    help="Register thumbnailer with Nautilus.",
+)
+@click.option(
+    "--unregister",
+    default=False,
+    type=bool,
+    is_flag=True,
+    help="Un-Register thumbnailer with Nautilus.",
+)
+def cli(in_file, out_file, size, register, unregister):
+    if register:
+        gnome_register()
+    elif unregister:
+        gnome_unregister()
+    else:
+        get_thumbnail(in_file, out_file, size)
