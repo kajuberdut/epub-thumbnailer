@@ -21,7 +21,6 @@
 
 import os
 import re
-import shutil
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
@@ -31,21 +30,13 @@ from xml.dom import minidom
 import click
 from PIL import Image
 
-source_dir = Path(__file__)
+valid_suffixes = ["epub"]
+
+thumbnailer_file = """[Thumbnailer Entry]
+Exec=uncover %u %o %s
+MimeType=application/epub+zip
+"""
 thumbnailer_path = Path("/usr/share/thumbnailers")
-
-
-def copy(src, dst):
-    """Copy file <src> to <dst>, creating all necessary dirs in between"""
-    try:
-        if not Path(src).isfile() or Path(dst).isdir():
-            return False
-        else:
-            Path(dst).mkdir(exist_ok=True, parents=True)
-            shutil.copy(src, dst)
-            return True
-    except Exception:
-        return False
 
 
 def gnome_info():
@@ -71,19 +62,16 @@ def gnome_register():
         sys.exit(1)
 
     if gnome_info()["platform"] == 3:
-        print("Installing thumbnailer hook in /usr/share/thumbnailers ...")
-        if copy(
-            os.path.join(source_dir, "epub.thumbnailer"),
-            "/usr/share/thumbnailers/epub.thumbnailer",
-        ):
-            print("Registered")
-        else:
-            print("Could not register thumbnailer")
+        print(f"Installing thumbnailer hook in {thumbnailer_path} ...")
+        Path(dst).mkdir(exist_ok=True, parents=True)
+        with open(thumbnailer_path / "epub.thumbnailer", "w") as thumbnailer:
+            thumbnailer.write(thumbnailer_file)
+        print("registered")
 
 
 def gnome_unregister():
     if gnome_info()["platform"] == 3:
-        print("Uninstalling epub.thumbnailer from /usr/share/thumbnailers/ ...")
+        print(f"Uninstalling epub.thumbnailer from {thumbnailer_path} ...")
         (thumbnailer_path / "epub.thumbnailer").unlink()
         print("Unregistered")
 
@@ -193,4 +181,13 @@ def cli(in_file, out_file, size, register, unregister):
     elif unregister:
         gnome_unregister()
     else:
+        if not in_file:
+            click.echo("No in/out files or other flag specified. See uncover --help.")
+            sys.exit(0)
+        else:
+            source = Path(in_file)
+        if not source.isfile() and source.suffix in valid_suffixes:
+            raise ValueError(
+                f"{source.name} is not a valid instance of {valid_suffixes}"
+            )
         get_thumbnail(in_file, out_file, size)
