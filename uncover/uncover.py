@@ -21,6 +21,7 @@
 
 import os
 import re
+import subprocess
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
@@ -30,49 +31,54 @@ from xml.dom import minidom
 import click
 from PIL import Image
 
-valid_suffixes = ["epub"]
 
-thumbnailer_file = """[Thumbnailer Entry]
-Exec=uncover %u %o %s
-MimeType=application/epub+zip
-"""
-thumbnailer_path = Path("/usr/share/thumbnailers")
+valid_suffixes = ["epub"]
+thumbnailer_source = Path(__file__).parents[0] / "epub.thumbnailer"
+thumbnailer_target = Path("/usr/share/thumbnailers")
+
+
+def nodeget(node, default=None, transform=lambda x: x):
+    try:
+        return transform(node.text)
+    except AttributeError as ae:
+        if "NoneType" in str(ae):
+            return default
 
 
 def gnome_info():
-    result_dict = {"platform": None, "distributor": None}
     gnome_version_xml_file = Path("/usr/share/gnome/gnome-version.xml")
 
-    if not gnome_version_xml_file.isfile():
-        return result_dict
+    if not gnome_version_xml_file.is_file():
+        return None
+    else:
+        tree = ET.parse(gnome_version_xml_file)
 
-    tree = ET.parse(gnome_version_xml_file)
-    if tree.find("./platform"):
-        result_dict["platform"] = tree.find("./platform").text
-    if tree.find("./distributor"):
-        result_dict["distributor"] = tree.find("./distributor").text
-    return result_dict
+        return {
+            "platform": nodeget(tree.find("./platform"), transform=int),
+            "distributor": nodeget(tree.find("./distributor")),
+        }
+
+
+def docommand(command):
+    click.echo("You may be prompted for sudo.")
+    click.echo("Alternately, you can run this command yourself:")
+    click.echo(command)
+    subprocess.Popen(command, shell=True)
 
 
 def gnome_register():
-    if not os.access(thumbnailer_path, os.W_OK):
-        print(
-            f"You do not have write permissions to {thumbnailer_path}. Try with sudo."
-        )
-        sys.exit(1)
-
-    if gnome_info()["platform"] == 3:
-        print(f"Installing thumbnailer hook in {thumbnailer_path} ...")
-        Path(dst).mkdir(exist_ok=True, parents=True)
-        with open(thumbnailer_path / "epub.thumbnailer", "w") as thumbnailer:
-            thumbnailer.write(thumbnailer_file)
+    info = gnome_info()
+    if info["platform"] == 3:
+        docommand(f"sudo cp {thumbnailer_source} {thumbnailer_target}")
         print("registered")
+    else:
+        click.echo(f"Platform was not gnome 3: {info}")
 
 
 def gnome_unregister():
     if gnome_info()["platform"] == 3:
-        print(f"Uninstalling epub.thumbnailer from {thumbnailer_path} ...")
-        (thumbnailer_path / "epub.thumbnailer").unlink()
+        installed_thumbnailer = thumbnailer_target / "epub.thumbnailer"
+        docommand(f"sudo rm {installed_thumbnailer}")
         print("Unregistered")
 
 
