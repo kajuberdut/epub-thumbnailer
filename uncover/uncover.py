@@ -22,13 +22,13 @@
 
 import subprocess
 import sys
-
 from pathlib import Path
 from xml.dom import minidom
 
 import click
 import xmltodict
 
+from uncover.models import Epub
 
 valid_suffixes = ["epub"]
 thumbnailer_source = Path(__file__).parents[0] / "epub.thumbnailer"
@@ -118,4 +118,5 @@ def cli(in_file, out_file, size, register, unregister):
             raise ValueError(
                 f"{source.name} is not a valid instance of {valid_suffixes}"
             )
-        get_thumbnail(in_file, out_file, size)
+        epub = Epub(file_path=in_file)
+        epub.write_thumbnail(out_file=out_file, size=size)
