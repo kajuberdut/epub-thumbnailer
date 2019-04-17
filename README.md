@@ -7,7 +7,7 @@ The goal of UnCover is to extract book covers from various file formats such as 
 
 The original project used a custom install script. To start wtih I only wanted to fork it to use the more conventional setup.py with an entry-point so that users could pip install easily. For fun I started making a few more changes and in the end only about 10% of code is shared with the upstream project.
 
-**Note** I intend to support Gnome before version 3 or Python before version 3.6. Anybody requiring support for older versions should look at [epub-thumbnailer](https://github.com/marianosimone/epub-thumbnailer).
+**Note** I do not intend to support Gnome before version 3 or Python before version 3.6. Anybody requiring support for older versions should look at [epub-thumbnailer](https://github.com/marianosimone/epub-thumbnailer).
 
 # How does it work?
 It is strongly reccomended you use [pipx](https://github.com/pipxproject/pipx) to isolate the dependencies of uncover. This is also the easiest way to get up and running. If you don't have pipx installed follow [these instructions](https://github.com/pipxproject/pipx#install-pipx)
