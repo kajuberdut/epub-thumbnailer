@@ -25,7 +25,7 @@ the --size flag is optional and defaults to 124 pixels.
 
 # What about integration with Nautilus?
 
-Nautilus, the file manager from Gnome, (supports custom thumbnailers)[https://developer.gnome.org/integration-guide/stable/thumbnailer.html.en]
+Nautilus, the file manager from Gnome, [supports custom thumbnailers](https://developer.gnome.org/integration-guide/stable/thumbnailer.html.en)
 
 To register uncover with Nautilus just run:
 ```
