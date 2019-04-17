@@ -9,7 +9,7 @@ We strongly reccomend you use [pipx](https://github.com/pipxproject/pipx) to iso
 With pipx you can install UnCover with this command:
 
 ```
- pipx install --spec git+https://github.com/kajuberdut/epub-thumbnailer.git uncover
+ pipx install --spec git+https://github.com/kajuberdut/uncover.git uncover
 ```
 
 # Then what?
@@ -23,6 +23,21 @@ This will look into the **epub_file** to find its cover, and will save a **size*
 
 the --size flag is optional and defaults to 124 pixels.
 
+# What about integration with Nautilus?
+
+Nautilus, the file manager from Gnome, (supports custom thumbnailers)[https://developer.gnome.org/integration-guide/stable/thumbnailer.html.en]
+
+To register uncover with Nautilus just run:
+```
+uncover --register
+```
+
+To unregister you can run:
+```
+uncover --unregister
+```
+
+Both commands will likely ask you to enter your sudo password so they can create/remove a file in "/usr/share/thumbnailers". If you would rather not enter your password into that prompt they also provide a shell command you can copy and run seperately.
 
 # Acknowledgments
 
