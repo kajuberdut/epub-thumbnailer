@@ -19,17 +19,16 @@
 # Description: An implementation of a cover thumbnailer for epub files
 # Installation: see README
 
-import os
-import re
+
 import subprocess
 import sys
-import zipfile
+
 from pathlib import Path
 from xml.dom import minidom
 
 import click
 import xmltodict
-from PIL import Image
+
 
 valid_suffixes = ["epub"]
 thumbnailer_source = Path(__file__).parents[0] / "epub.thumbnailer"
@@ -84,87 +83,6 @@ def gnome_unregister():
         click.echo(f"{installed_thumbnailer} not found. Cannot unregister.")
     proc = docommand(["sudo", "rm", str(installed_thumbnailer)])
     proc.wait()
-
-
-img_ext_regex = re.compile(r"^.*\.(jpg|jpeg|png)$", flags=re.IGNORECASE)
-cover_regex = re.compile(r".*cover.*\.(jpg|jpeg|png)", flags=re.IGNORECASE)
-
-
-def get_cover_from_manifest(epub):
-
-    # open the main container
-    container = epub.open("META-INF/container.xml")
-    container_root = minidom.parseString(container.read())
-
-    # locate the rootfile
-    elem = container_root.getElementsByTagName("rootfile")[0]
-    rootfile_path = elem.getAttribute("full-path")
-
-    # open the rootfile
-    rootfile = epub.open(rootfile_path)
-    rootfile_root = minidom.parseString(rootfile.read())
-
-    # find possible cover in meta
-    cover_id = None
-    for meta in rootfile_root.getElementsByTagName("meta"):
-        if meta.getAttribute("name") == "cover":
-            cover_id = meta.getAttribute("content")
-            break
-
-    # find the manifest element
-    manifest = rootfile_root.getElementsByTagName("manifest")[0]
-    for item in manifest.getElementsByTagName("item"):
-        item_id = item.getAttribute("id")
-        item_properties = item.getAttribute("properties")
-        item_href = item.getAttribute("href")
-        item_href_is_image = img_ext_regex.match(item_href.lower())
-        item_id_might_be_cover = item_id == cover_id or (
-            "cover" in item_id and item_href_is_image
-        )
-        item_properties_might_be_cover = item_properties == cover_id or (
-            "cover" in item_properties and item_href_is_image
-        )
-        if item_id_might_be_cover or item_properties_might_be_cover:
-            return os.path.join(os.path.dirname(rootfile_path), item_href)
-
-    return None
-
-
-def get_cover_by_filename(epub):
-    no_matching_images = []
-    for fileinfo in epub.filelist:
-        if cover_regex.match(fileinfo.filename):
-            return fileinfo.filename
-        if img_ext_regex.match(fileinfo.filename):
-            no_matching_images.append(fileinfo)
-    return _choose_best_image(no_matching_images)
-
-
-def _choose_best_image(images):
-    if images:
-        return max(images, key=lambda f: f.file_size)
-    return None
-
-
-def get_thumbnail(in_file, out_file, size):
-    file_path = Path(in_file)
-    # Unzip the epub
-    epub = zipfile.ZipFile(file_path, "r")
-    extraction_strategies = [get_cover_from_manifest, get_cover_by_filename]
-
-    for strategy in extraction_strategies:
-        try:
-            cover_path = strategy(epub)
-            if cover_path:
-                cover = epub.open(cover_path)
-                im = Image.open(cover.read())
-                im.thumbnail((size, size), Image.ANTIALIAS)
-                if im.mode == "CMYK":
-                    im = im.convert("RGB")
-                im.save(out_file, "PNG")
-                exit(0)
-        except Exception as ex:
-            print("Error getting cover using %s: " % strategy.__name__, ex)
 
 
 @click.command()
