@@ -23,26 +23,17 @@ import os
 import re
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 from xml.dom import minidom
 
 import click
+import xmltodict
 from PIL import Image
-
 
 valid_suffixes = ["epub"]
 thumbnailer_source = Path(__file__).parents[0] / "epub.thumbnailer"
 thumbnailer_target = Path("/usr/share/thumbnailers")
-
-
-def nodeget(node, default=None, transform=lambda x: x):
-    try:
-        return transform(node.text)
-    except AttributeError as ae:
-        if "NoneType" in str(ae):
-            return default
 
 
 def gnome_info():
@@ -51,35 +42,48 @@ def gnome_info():
     if not gnome_version_xml_file.is_file():
         return None
     else:
-        tree = ET.parse(gnome_version_xml_file)
-
+        with open(gnome_version_xml_file) as gcfg:
+            config = xmltodict.parse(gcfg.read()).get("gnome-version", {})
         return {
-            "platform": nodeget(tree.find("./platform"), transform=int),
-            "distributor": nodeget(tree.find("./distributor")),
+            "platform": config.get("platform"),
+            "distributor": config.get("distributor"),
         }
 
 
 def docommand(command):
     click.echo("You may be prompted for sudo.")
     click.echo("Alternately, you can run this command yourself:")
-    click.echo(command)
-    subprocess.Popen(command, shell=True)
+    click.echo(" ".join(command))
+    return subprocess.Popen(
+        command, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+
+
+def require_gnome_3():
+    info = gnome_info()
+    if int(info["platform"]) != 3:
+        click.echo(f"Platform was not gnome 3: {info}")
+        sys.exit(0)
 
 
 def gnome_register():
-    info = gnome_info()
-    if info["platform"] == 3:
-        docommand(f"sudo cp {thumbnailer_source} {thumbnailer_target}")
-        print("registered")
-    else:
-        click.echo(f"Platform was not gnome 3: {info}")
+    require_gnome_3()
+    proc = docommand(["sudo", "cp", str(thumbnailer_source), str(thumbnailer_target)])
+    proc.wait()
+
+    if (thumbnailer_target / "epub.thumbnailer").is_file():
+        click.echo(f"Thumbnailer has been registered with Gnome.")
 
 
 def gnome_unregister():
-    if gnome_info()["platform"] == 3:
-        installed_thumbnailer = thumbnailer_target / "epub.thumbnailer"
-        docommand(f"sudo rm {installed_thumbnailer}")
-        print("Unregistered")
+    require_gnome_3()
+
+    installed_thumbnailer = thumbnailer_target / "epub.thumbnailer"
+
+    if not installed_thumbnailer.is_file():
+        click.echo(f"{installed_thumbnailer} not found. Cannot unregister.")
+    proc = docommand(["sudo", "rm", str(installed_thumbnailer)])
+    proc.wait()
 
 
 img_ext_regex = re.compile(r"^.*\.(jpg|jpeg|png)$", flags=re.IGNORECASE)
@@ -192,7 +196,7 @@ def cli(in_file, out_file, size, register, unregister):
             sys.exit(0)
         else:
             source = Path(in_file)
-        if not source.isfile() and source.suffix in valid_suffixes:
+        if not source.is_file() and source.suffix in valid_suffixes:
             raise ValueError(
                 f"{source.name} is not a valid instance of {valid_suffixes}"
             )
