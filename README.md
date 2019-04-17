@@ -3,7 +3,7 @@ UnCover is a fork of [epub-thumbnailer](https://github.com/marianosimone/epub-th
 
 The goal of UnCover is to extract book covers from various file formats such as epub.
 
-##Why fork?
+## Why fork?
 
 The original project used a custom install script. To start wtih I only wanted to fork it to use the more conventional setup.py with an entry-point so that users could pip install easily. For fun I started making a few more changes and in the end only about 10% of code is shared with the upstream project.
 
